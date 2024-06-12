@@ -1,0 +1,16 @@
+name = "MicroGrad"
+uuid = "8657e5b9-0316-4e13-a3fd-770988076e0a"
+authors = ["Lior Sinai"]
+version = "0.1.0"
+
+[deps]
+IRTools = "7869d1d1-7146-5819-86e3-90919afe41df"
+
+[compat]
+julia = "1.9"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
