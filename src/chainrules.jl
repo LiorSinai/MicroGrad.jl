@@ -2,7 +2,7 @@
 """
     rrule(f, xs...)
 
-Returns the tuple: `(f(xs...), back)` where `back(∂y/∂f) = (∂f, ∂x₁, ∂x₂, ... )`. Here `∂x` is shorthand for `∂y/∂x`.
+Returns the tuple: `(f(xs...), back)` where `back(∂y/∂f) = (∂self, ∂x₁, ∂x₂, ... )`. Here `∂x` is shorthand for `∂y/∂x`.
 
 `back(Δ) = J'Δ` where `J=∂f/∂x` is the derivative/Jacobian (if inputs are arrays) and `Δ=∂y/∂f` is the incoming gradient.
 Note the Jacobian does not need to be explicitly calculated; only the product needs to be.
@@ -13,29 +13,29 @@ rrule(::Any, ::Vararg{Any}) = nothing
 
 # https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/fastmath_able.jl
 function rrule(::typeof(+), x::Number, y::Number)
-    add_back(Δy) = (nothing, true * Δy, true * Δy) # ∂f, ∂x, ∂y
+    add_back(Δ) = (nothing, true * Δ, true * Δ) # ∂self, ∂x, ∂y
     x + y, add_back
 end
 
 function rrule(::typeof(-), x::Number, y::Number)
-    minus_back(Δy) = (nothing, true * Δy, -1 * Δy) # ∂f, ∂x, ∂y
+    minus_back(Δ) = (nothing, true * Δ, -1 * Δ) # ∂self, ∂x, ∂y
     x - y, minus_back
 end
 
 function rrule(::typeof(*), x::Number, y::Number)
-    times_back(Δy) = (nothing, y * Δy, x * Δy) # ∂f, ∂x, ∂y
+    times_back(Δ) = (nothing, y * Δ, x * Δ) # ∂self, ∂x, ∂y
     x * y, times_back
 end
 
 function rrule(::typeof(/), x::Number, y::Number)
-    z = x / y
-    divide_back(Δy) = (nothing, 1 / y * Δy, -z/y * Δy) # ∂f, ∂x, ∂y
-    z, divide_back
+    Ω = x / y
+    divide_back(Δ) = (nothing, 1 / y * Δ, -Ω/y * Δ) # ∂self, ∂x, ∂y
+    Ω, divide_back
 end
 
 function rrule(::typeof(exp), x::Real)
-    y = exp(x)
-    y, Δy -> Δy * y
+    Ω = exp(x)
+    y, Δy -> Δy * Ω
 end
 
 ###
@@ -45,13 +45,13 @@ end
 # https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/fastmath_able.jl
 function rrule(::typeof(sin), x::Number)
     s, c = sincos(x)
-    sin_back(Δy) = (nothing, Δy * c) # ∂f, ∂x
+    sin_back(Δ) = (nothing, Δ * c) # ∂self, ∂x
     s, sin_back
 end
 
 function rrule(::typeof(cos), x::Number)
     s, c = sincos(x)
-    cos_back(Δy) = (nothing, -Δy * s) # ∂f, ∂x
+    cos_back(Δ) = (nothing, -Δ * s) # ∂self, ∂x
     c, cos_back
 end
 
@@ -65,13 +65,13 @@ end
 # https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/evalpoly.jl
 function rrule(::typeof(evalpoly), x, coeffs::AbstractVector)
     y = evalpoly(x, coeffs)
-    function evalpoly_back(Δy)
+    function evalpoly_back(Δ)
         xpow = one(x)
-        dp = similar(coeffs, typeof(xpow * Δy))
+        dp = similar(coeffs, typeof(xpow * Δ))
         dx = zero(x)
         for i in eachindex(coeffs)
-            dp[i] = Δy * xpow
-            dx += (i-1) * coeffs[i] * xpow / x * Δy
+            dp[i] = Δ * xpow
+            dx += (i-1) * coeffs[i] * xpow / x * Δ
             xpow *= x
         end
         return nothing, dx, dp
@@ -84,17 +84,17 @@ end
 ###
 
 function rrule(::typeof(*), A::AbstractVecOrMat{<:Real}, B::AbstractVecOrMat{<:Real})
-    function times_back(ΔY)
-        dA = ΔY * B'
-        dB = A' * ΔY
+    function times_back(Δ)
+        dA = Δ * B'
+        dB = A' * Δ
         return (nothing, dA, dB)
     end
     A * B, times_back
 end
 
 function rrule(::typeof(+), A::AbstractVecOrMat{<:Real}, B::AbstractVecOrMat{<:Real})
-    function plus_back(ΔY)
-        return (nothing, ΔY, ΔY)
+    function plus_back(Δ)
+        return (nothing, Δ, Δ)
     end
     A + B, plus_back
 end
@@ -136,7 +136,7 @@ function check_dims(size_x, size_dx) # see ChainRulesCore.ProjectTo
 end
 
 function rrule(::typeof(Broadcast.broadcasted), ::typeof(+), A::AbstractVecOrMat{<:Real}, B::AbstractVecOrMat{<:Real})
-    broadcast_back(Δy) = (nothing, nothing, unbroadcast(A, Δy), unbroadcast(B, Δy))
+    broadcast_back(Δ) = (nothing, nothing, unbroadcast(A, Δ), unbroadcast(B, Δ))
     broadcast(+, A, B), broadcast_back
 end
 

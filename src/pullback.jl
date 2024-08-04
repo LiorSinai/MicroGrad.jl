@@ -53,9 +53,9 @@ end
 function pullback(::typeof(map), f, xs)
     ys_and_backs = map((xs...) -> pullback(f, xs...), xs)
     ys = map(first, ys_and_backs)
-    function map_pullback(Δy)
+    function map_pullback(Δ)
       # technically should apply f in reverse and reverse back afterwards in case f is stateful
-      ∂f_and_∂x_zipped = map(((_, pb), δ) -> pb(δ), ys_and_backs, Δy)
+      ∂f_and_∂x_zipped = map(((_, pb), δ) -> pb(δ), ys_and_backs, Δ)
       ∂f_and_∂x = unzip(∂f_and_∂x_zipped) 
       ∂f = reduce(accum, ∂f_and_∂x[1])
       ∂args = ∂f_and_∂x[2:end]

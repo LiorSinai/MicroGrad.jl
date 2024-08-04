@@ -115,15 +115,15 @@ _unsum(x, Δy) = broadcast(last∘tuple, x, Δy)
 
 Mean squared error: `mean((ŷ - y).^2)`.
 """
-mse(ŷ::AbstractVecOrMat, y::AbstractVecOrMat) = mean((ŷ - y).^2)
+mse(ŷ::AbstractVecOrMat, y::AbstractVecOrMat) = mean(abs2.(ŷ - y))
 
 function rrule(::typeof(mse), ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
-    l = mse(ŷ, y)
+    Ω = mse(ŷ, y)
     function mse_back(Δy)
         c = 2 * (ŷ - y) / length(y) * Δy
-        return nothing, c, -c # ∂f, ∂ŷ, ∂y
+        return nothing, c, -c # ∂self, ∂ŷ, ∂y
     end
-    l, mse_back
+    Ω, mse_back
 end
 
 """
@@ -139,15 +139,15 @@ function cross_entropy(ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
 end
 
 function rrule(::typeof(cross_entropy), ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
-    l = cross_entropy(ŷ, y)
-    function cross_entropy_back(Δy)
-        size_l = size(l)
-        n = length(size_l) > 1 ? sum(size(l)[2:end]) : 1
-        ∂ŷ = -y ./ (ŷ .+ 1e-6) * Δy/n
-        ∂y = -log.(ŷ)  * Δy/n
+    Ω = cross_entropy(ŷ, y)
+    function cross_entropy_back(Δ)
+        size_l = size(Ω)
+        n = length(size_l) > 1 ? sum(size(Ω)[2:end]) : 1
+        ∂ŷ = -y ./ (ŷ .+ 1e-6) * Δ/n
+        ∂y = -log.(ŷ)  * Δ/n
         return nothing, ∂ŷ , ∂y
     end
-    l, cross_entropy_back
+    Ω, cross_entropy_back
 end
 
 """
@@ -163,11 +163,11 @@ end
 
 function rrule(::typeof(logit_cross_entropy),  ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
     ls, logsoftmax_back = rrule(logsoftmax, ŷ)
-    function logit_cross_entropy_back(Δy)
+    function logit_cross_entropy_back(Δ)
         size_ls = size(ls)
         n = length(size_ls) > 1 ? sum(size(ls)[2:end]) : 1
-        ∂ŷ = -logsoftmax_back(y * Δy/n)[2]
-        ∂y = Δy/n .* (-ls)
+        ∂ŷ = -logsoftmax_back(y * Δ/n)[2]
+        ∂y = Δ/n .* (-ls)
         return nothing, ∂ŷ , ∂y
     end
     mean(-sum(y .* ls, dims = 1)), logit_cross_entropy_back
@@ -186,10 +186,10 @@ end
 
 function rrule(::typeof(hinge_loss),  ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
     l = relu(1 .- y .* ŷ)
-    function back_hinge_loss(Δy)
+    function back_hinge_loss(Δ)
         n = length(l)
-        ∂ŷ = -y .* ifelse.(l .> 0, Δy / n, 0)
-        ∂y = ifelse.(l .> 0, -Δy/n .* ŷ, 0)
+        ∂ŷ = -y .* ifelse.(l .> 0, Δ / n, 0)
+        ∂y = ifelse.(l .> 0, -Δ/n .* ŷ, 0)
         return nothing, ∂ŷ , ∂y
     end
     mean(l), back_hinge_loss
