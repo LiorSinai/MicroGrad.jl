@@ -131,7 +131,7 @@ function _generate_pullback(world, f, args...)
     if (has_chain_rrule(T, world))
         return :(rrule(f, args...))
     end    
-    g = _generate_pullback_by_decomposition(T, world)
+    g = _generate_pullback_via_decomposition(T, world)
     if isnothing(g)
         return :(error("No method found for ", repr($T), " in world ", $world))
     end
@@ -156,7 +156,7 @@ function has_chain_rrule(T, world)
     !(sig isa DataType) || (sig.parameters[2] !== Any)
 end
 
-function _generate_pullback_by_decomposition(T, world)
+function _generate_pullback_via_decomposition(T, world)
     m = meta(T; world=world)
     isnothing(m) && return nothing
     ir = IR(m)

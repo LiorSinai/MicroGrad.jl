@@ -161,7 +161,7 @@ function _generate_pullback(world, f, args...)
     if (has_chain_rrule(T, world))
         return :(rrule(f, args...))
     end    
-    pr, backs = _generate_pullback_by_decomposition(T, world)
+    pr, backs = _generate_pullback_via_decomposition(T, world)
     replace_slot!(pr, 1, :f)
     varargs!(pr)
     replace_SSA!(pr)
@@ -179,7 +179,7 @@ function has_chain_rrule(T, world)
     method_.sig.parameters[2] !== Any
 end
 
-function _generate_pullback_by_decomposition(T, world)
+function _generate_pullback_via_decomposition(T, world)
     m = meta(T; world=world)
     isnothing(m) && return :(error("No method found for ", repr($T), " in world ", $world))
     type_signature, sps, method_ = m
