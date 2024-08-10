@@ -76,7 +76,7 @@ Pullback{S}(data) where S = Pullback{S,typeof(data)}(data)
 function primal(ci::Core.CodeInfo, T=Any)
     tape = []
     calls = []
-    ret = []
+    pullbacks = []
     for (i, ex) in enumerate(ci.code)
         vy = Symbol("y$i")
         if ex isa Core.ReturnNode
@@ -87,13 +87,13 @@ function primal(ci::Core.CodeInfo, T=Any)
             vb = Symbol("back$i")
             new_ex = :(($vy, $vb) = MicroGrad.pullback($(ex.args...)))
             push!(tape, new_ex)
-            push!(calls, (;var=vy, expr=ex))
-            push!(ret, vb)
+            push!(calls, (;SSA_value=vy, expr=ex))
+            push!(pullbacks, vb)
         else # keep as is
             push!(tape, :($vy = $ex))
         end
     end
-    pb = Expr(:call, Pullback{T}, xcall(:tuple, ret...))
+    pb = Expr(:call, Pullback{T}, xcall(:tuple, pullbacks...))
     push!(tape, xcall(:tuple, returnvalue(ci), pb))
     pr = Expr(:block, tape...)
     pr, calls
@@ -117,13 +117,13 @@ ignored_f(f) = f in (
 )
 
 function reverse_differentiate(forw::Core.CodeInfo, self, Δ) # Zygote.adjoint
-    pr, calls = primal(forw)
     grads = Dict()
     grad!(x, x̄) = push!(get!(grads, x, []), x̄)
     grad(x) = _sum(get(grads, x, [])...)
     grad!(_var_name(returnvalue(forw)), Δ) # _var_name maps to variable names in calls
     tape = Expr[]
     push!(tape, :(data=$(xcall(:getfield, self, QuoteNode(:data)))))
+    pr, calls = primal(forw)
     i = length(calls)
     for (v, ex) in reverse(calls)
         vb = Symbol("back$i")
@@ -190,9 +190,9 @@ end
 ###
 ### @generated reverse
 ### 
-function _generate_callable_pullback(j::Type{<:Pullback{T, S}}, world, Δ) where {T, S}
-    m = meta(T; world=world)
-    isnothing(m) && return :(error("No method found for ", repr($T), " in world ", $world))
+function _generate_callable_pullback(j::Type{<:Pullback{S, T}}, world, Δ) where {S, T}
+    m = meta(S; world=world)
+    isnothing(m) && return :(error("No method found for ", repr($S), " in world ", $world))
     type_signature, sps, method_ = m
     ci = Base.uncompressed_ast(method_)
     back = reverse_differentiate(ci, :methodinstance, :Δ)

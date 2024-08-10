@@ -46,7 +46,7 @@ Pullback{S}(data) where S = Pullback{S,typeof(data)}(data)
 function primal(ir::IR, T=Any)
     pr = Pipe(ir) # make inserts into ir efficient
     calls = []
-    ret = []
+    pullbacks = []
     for (v, st) in pr
         ex = st.expr
         if isexpr(ex, :call) && !ignored(ex)
@@ -54,10 +54,10 @@ function primal(ir::IR, T=Any)
             pr[v] = xcall(Base, :getindex, t, 1)
             J = push!(pr, xcall(:getindex, t, 2))
             push!(calls, v)
-            push!(ret, J)
+            push!(pullbacks, J)
         end
     end
-    pb = Expr(:call, Pullback{T}, xcall(:tuple, ret...))
+    pb = Expr(:call, Pullback{T}, xcall(:tuple, pullbacks...))
     return!(pr, xcall(:tuple, returnvalue(block(ir, 1)), pb))
     finish(pr), calls
 end
@@ -169,8 +169,8 @@ end
 ###
 ### @generated reverse
 ### 
-function _generate_callable_pullback(j::Type{<:Pullback{T, S}}, world, Δ) where {T, S}
-    m = meta(T; world=world)
+function _generate_callable_pullback(j::Type{<:Pullback{S, T}}, world, Δ) where {S, T}
+    m = meta(S; world=world)
     ir = IR(m)
     isnothing(ir) && return :(error("Non-differentiable function ", repr(args[1])))
     length(blocks(ir)) == 1 || error("control flow is not supported")
