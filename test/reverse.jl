@@ -115,6 +115,25 @@ end
     @test grad_[3] ≈ expected[3]
 end
 
+@testset "map" begin
+    x = [0.1, 0.2, 0.5]
+    z, back = pullback(map, sin, x) 
+    grad_ = back([1.0, 1.0, 1.0])
+    @test isnothing(grad_[1])
+    @test isnothing(grad_[2])
+    @test grad_[3] ≈ [0.9950041652780258, 0.9800665778412416, 0.8775825618903728]
+
+    bar(a, b) = a / (a + b*b) # T = Tuple{typeof(bar), Float64, Float64}
+    grad_bar(a, b) = (nothing, b*b/(a + b*b)^2, -2*a*b/(a + b*b)^2)
+
+    z, back = pullback(map, bar, [2.1, 4.0], [3.2, 5.0])
+    grad_ = back([1.0, 1.0])
+    @test isnothing(grad_[1])
+    @test isnothing(grad_[2])
+    @test grad_[3] ≈ [0.06724649254378245, 0.029726516052318668]
+    @test grad_[4] ≈ [-0.08826102146371445, -0.047562425683709865]
+end
+
 @testset "getfield" begin
     struct Boo
         x

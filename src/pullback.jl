@@ -50,8 +50,8 @@ function unzip(tuples)
   _unzip(tuples, Val(N))
 end
 
-function pullback(::typeof(map), f, xs)
-    ys_and_backs = map((xs...) -> pullback(f, xs...), xs)
+function pullback(::typeof(map), f::F, args::Vararg{Any, N}) where {F, N}
+    ys_and_backs = map((xs...) -> pullback(f, xs...), args...)
     ys = map(first, ys_and_backs)
     function map_pullback(Δ)
       # technically should apply f in reverse and reverse back afterwards in case f is stateful
