@@ -98,14 +98,14 @@ is_literal_getfield(ex) =
   ex.args[3] isa Union{QuoteNode,Integer}
 
 function reverse_differentiate(forw::IR) # Zygote.adjoint
-    ir = empty(forw)
     grads = Dict()
     grad!(x, x̄) = push!(get!(grads, x, []), x̄)
-    grad(x) = _sum(get(grads, x, [])...)
+    grad(x) = xaccum(get(grads, x, [])...)
+    ir = empty(forw)
+    grad!(returnvalue(block(forw, 1)), argument!(ir)) # starting gradient is incoming Δ
     self = argument!(ir, at = 1, insert=false)
-    grad!(returnvalue(block(forw, 1)), IRTools.argument!(ir)) # starting gradient is incoming Δ
     data = push!(ir, xcall(:getfield, self, QuoteNode(:data)))
-    _, calls = primal(forw)
+    pr, calls = primal(forw)
     pullbacks = Dict(calls[i] => push!(ir, xcall(:getindex, data, i)) for i = 1:length(calls))
     for v in reverse(keys(forw))
         ex = forw[v].expr
@@ -119,9 +119,9 @@ function reverse_differentiate(forw::IR) # Zygote.adjoint
     return!(ir, xcall(:tuple, [grad(x) for x in arguments(forw)]...))
 end
 
-_sum() = nothing
-_sum(x) = x
-_sum(xs...) = xcall(MicroGrad, :accum, xs...)
+xaccum() = nothing
+xaccum(x) = x
+xaccum(xs...) = xcall(MicroGrad, :accum, xs...)
 
 ###
 ### @generated forward
@@ -135,7 +135,7 @@ function _generate_pullback(world, f, args...)
     if isnothing(g)
         return :(error("No method found for ", repr($T), " in world ", $world))
     end
-    m, pr, backs =  g
+    m, pr, backs = g
     pr = varargs!(m, pr, 1)
     pr = slots!(pis!(pr))
     argument!(pr, at = 1) # add #self#

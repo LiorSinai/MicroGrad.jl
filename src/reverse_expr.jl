@@ -119,7 +119,7 @@ ignored_f(f) = f in (
 function reverse_differentiate(forw::Core.CodeInfo, self, Δ) # Zygote.adjoint
     grads = Dict()
     grad!(x, x̄) = push!(get!(grads, x, []), x̄)
-    grad(x) = _sum(get(grads, x, [])...)
+    grad(x) = xaccum(get(grads, x, [])...)
     grad!(_var_name(returnvalue(forw)), Δ) # _var_name maps to variable names in calls
     tape = Expr[]
     push!(tape, :(data=$(xcall(:getfield, self, QuoteNode(:data)))))
@@ -142,10 +142,10 @@ function reverse_differentiate(forw::Core.CodeInfo, self, Δ) # Zygote.adjoint
     Expr(:block, tape...)
 end
 
-_sum() = nothing
-_sum(x) = x
-#_sum(x...) = xcall(:+, x...) # only works in simple cases
-_sum(xs...) = xcall(MicroGrad, :accum, xs...)
+xaccum() = nothing
+xaccum(x) = x
+#xaccum(x...) = xcall(:+, x...) # only works in simple cases
+xaccum(xs...) = xcall(MicroGrad, :accum, xs...)
 
 arguments(forw::Core.CodeInfo) = [Symbol("#self"), [Symbol("args$i") for i in 2:length(forw.slotnames)]...]
 _var_name(x::Core.SlotNumber) = x.id == 1 ? Symbol("#self") : Symbol("args$(x.id)")
