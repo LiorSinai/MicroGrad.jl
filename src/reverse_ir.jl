@@ -1,4 +1,5 @@
 # based on https://github.com/FluxML/IRTools.jl/blob/master/examples/reverse.jl
+AD_MODE = "IR"
 
 using IRTools
 using IRTools: arguments, block, blocks, finish, IR, isexpr, meta, Pipe,

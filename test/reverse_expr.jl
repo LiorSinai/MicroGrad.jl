@@ -1,4 +1,7 @@
+using MicroGrad
 using Test
+
+@assert MicroGrad.AD_MODE == "EXPRESSION"
 
 @testset "not supported" begin
     foo(x::Number) = x > 0 ? x : 0 # relu

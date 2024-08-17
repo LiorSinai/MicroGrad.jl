@@ -1,3 +1,5 @@
+AD_MODE = "EXPRESSION"
+
 # https://github.com/FluxML/IRTools.jl/blob/master/src/reflection/reflection.jl
 function meta(T; world=Base.get_world_counter())
     if isnothing(world)
