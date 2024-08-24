@@ -69,10 +69,10 @@ Computes the log of softmax in a more numerically stable way than directly takin
 logsoftmax(x::AbstractArray) = x .- log.(sum(exp.(x), dims=1))
 
 function rrule(::typeof(logsoftmax), x::AbstractArray)
-    s = exp.(x)
-    Σ = sum(s, dims=1)
+    expx = exp.(x)
+    Σ = sum(expx, dims=1)
     function logsoftmax_back(Δ)
-        (nothing, Δ .- sum(Δ; dims=1) .* s ./ Σ)
+        (nothing, Δ .- sum(Δ; dims=1) .* expx ./ Σ)
     end
     x .- log.(Σ), logsoftmax_back
 end
@@ -161,14 +161,14 @@ function logit_cross_entropy(ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
     mean(-sum(y .* logsoftmax(ŷ), dims=1))
 end
 
-function rrule(::typeof(logit_cross_entropy),  ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
-    ls, logsoftmax_back = rrule(logsoftmax, ŷ)
+function rrule(::typeof(logit_cross_entropy),  x::AbstractVecOrMat, y::AbstractVecOrMat)
+    ls, logsoftmax_back = rrule(logsoftmax, x)
     function logit_cross_entropy_back(Δ)
         size_ls = size(ls)
-        n = length(size_ls) > 1 ? sum(size(ls)[2:end]) : 1
-        ∂ŷ = logsoftmax_back(-y * Δ/n)[2]
+        n = length(size_ls) > 1 ? prod(size(ls)[2:end]) : 1
+        ∂x = logsoftmax_back(-y * Δ/n)[2]
         ∂y = Δ/n .* (-ls)
-        return nothing, ∂ŷ , ∂y
+        return nothing, ∂x , ∂y
     end
     mean(-sum(y .* ls, dims = 1)), logit_cross_entropy_back
 end
