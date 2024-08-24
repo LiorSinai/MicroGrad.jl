@@ -15,14 +15,14 @@ sigmoid(x::AbstractArray) = sigmoid.(x)
 
 function rrule(::typeof(sigmoid), x::Number)
     y = sigmoid(x)
-    sigmoid_back(Δy) = (nothing, Δy * y * (1 - y))
+    sigmoid_back(Δ) = (nothing, Δ * y * (1 - y))
     y, sigmoid_back
 end
 
 # Custom rules for AbstractArray because there is no generalised pullback for broadcasting
 function rrule(::typeof(Broadcast.broadcasted), ::typeof(sigmoid), x::AbstractArray{<:Real})
     y = sigmoid.(x)
-    sigmoid_back(Δy) = (nothing, nothing, Δy .* y .* (1 .- y)) 
+    sigmoid_back(Δ) = (nothing, nothing, Δ .* y .* (1 .- y)) 
     y, sigmoid_back
 end
 
@@ -36,14 +36,14 @@ tanh_act(x::AbstractArray) = tanh_act.(x)
 
 function rrule(::typeof(tanh_act), x::Number)
     y = tanh(x)
-    tanh_back(Δy) = (nothing, Δy * (1 - y^2))
+    tanh_back(Δ) = (nothing, Δ * (1 - y^2))
     y, tanh_back
 end
 
 # Custom rules for AbstractArray because there is no generalised pullback for broadcasting
 function rrule(::typeof(Broadcast.broadcasted), ::typeof(tanh_act), x::AbstractArray{<:Real})
     y = broadcast(tanh, x)
-    tanh_back(Δy) = (nothing, nothing, Δy .* (1 .- y.^2))
+    tanh_back(Δ) = (nothing, nothing, Δ .* (1 .- y.^2))
     y, tanh_back
 end
 
@@ -57,7 +57,7 @@ relu(x::AbstractArray) = max.(0, x)
 
 function rrule(::typeof(relu), x::AbstractArray)
     y = relu(x)
-    relu_back(Δy) = (nothing, ifelse.(x .> 0, Δy, 0))
+    relu_back(Δ) = (nothing, ifelse.(x .> 0, Δ, 0))
     y, relu_back
 end
 
@@ -71,8 +71,8 @@ logsoftmax(x::AbstractArray) = x .- log.(sum(exp.(x), dims=1))
 function rrule(::typeof(logsoftmax), x::AbstractArray)
     s = exp.(x)
     Σ = sum(s, dims=1)
-    function logsoftmax_back(Δy)
-        (nothing, Δy .- sum(Δy; dims=1) .* s ./ Σ)
+    function logsoftmax_back(Δ)
+        (nothing, Δ .- sum(Δ; dims=1) .* s ./ Σ)
     end
     x .- log.(Σ), logsoftmax_back
 end
@@ -88,8 +88,8 @@ softmax(x::AbstractArray) = exp.(x) ./ sum(exp.(x); dims=1)
 
 function rrule(::typeof(softmax), x::AbstractArray)
     y = softmax(x)
-    function softmax_back(Δy)
-        tmp = Δy .* y
+    function softmax_back(Δ)
+        tmp = Δ .* y
         (nothing, tmp .- y .* sum(tmp; dims=1))
     end
     y, softmax_back
@@ -104,7 +104,7 @@ mean(x::AbstractArray) = sum(x) / length(x)
 # https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/mapreduce.jl
 function rrule(::typeof(mean), x::AbstractArray)
     y = mean(x)
-    back_mean(Δy) = (nothing, _unsum(x, Δy) / length(x))
+    back_mean(Δ) = (nothing, _unsum(x, Δ) / length(x))
     y, back_mean
 end
 
@@ -119,8 +119,8 @@ mse(ŷ::AbstractVecOrMat, y::AbstractVecOrMat) = mean(abs2.(ŷ - y))
 
 function rrule(::typeof(mse), ŷ::AbstractVecOrMat, y::AbstractVecOrMat)
     Ω = mse(ŷ, y)
-    function mse_back(Δy)
-        c = 2 * (ŷ - y) / length(y) * Δy
+    function mse_back(Δ)
+        c = 2 * (ŷ - y) / length(y) * Δ
         return nothing, c, -c # ∂self, ∂ŷ, ∂y
     end
     Ω, mse_back
@@ -166,7 +166,7 @@ function rrule(::typeof(logit_cross_entropy),  ŷ::AbstractVecOrMat, y::Abstrac
     function logit_cross_entropy_back(Δ)
         size_ls = size(ls)
         n = length(size_ls) > 1 ? sum(size(ls)[2:end]) : 1
-        ∂ŷ = -logsoftmax_back(y * Δ/n)[2]
+        ∂ŷ = logsoftmax_back(-y * Δ/n)[2]
         ∂y = Δ/n .* (-ls)
         return nothing, ∂ŷ , ∂y
     end
